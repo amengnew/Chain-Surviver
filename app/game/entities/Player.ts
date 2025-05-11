@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { Bullet } from './Bullet';
+import { Skill } from './Skill';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   hp: number;
@@ -16,6 +17,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   direction: { x: number; y: number };
   invincibleUntil: number = 0;
   expMagnetRange: number;
+  skills: Skill[];
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, 'player');
@@ -36,6 +38,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.lastAttackTime = 0;
     this.direction = { x: 1, y: 0 };
     this.expMagnetRange = 80; // 经验球吸引范围
+    this.skills = [];
   }
 
   move(direction: { x: number; y: number }) {

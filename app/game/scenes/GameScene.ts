@@ -3,6 +3,9 @@ import { Player } from '../entities/Player';
 import { Enemy } from '../entities/Enemy';
 import { ExpOrb } from '../entities/ExpOrb';
 import { Bullet } from '../entities/Bullet';
+import { Skill } from '../entities/Skill';
+import { FireballSkill, HealingAuraSkill } from '../skills/skills';
+import { PlayerAccount } from '../entities/PlayerAccount';
 
 class GameScene extends Phaser.Scene {
   player!: Player;
@@ -14,6 +17,18 @@ class GameScene extends Phaser.Scene {
   playerHpText!: Phaser.GameObjects.Text;
   playerExpBar!: Phaser.GameObjects.Graphics;
   playerLevelText!: Phaser.GameObjects.Text;
+  skillBarSyncTimer: number = 0;
+  wave: number = 1;
+  maxWave: number = 3;
+  waveTime: number = 30; // 每波30秒
+  waveTimer: number = 0;
+  waveEnemyCount: number[] = [5, 10, 18];
+  waveEnemyHp: number[] = [30, 60, 120];
+  waveEnemySpawned: number = 0;
+  waveEnemyTotal: number = 0;
+  waveEnemyAlive: number = 0;
+  waveUiText!: Phaser.GameObjects.Text;
+  isGameClear: boolean = false;
 
   constructor() {
     super('GameScene');
@@ -107,6 +122,20 @@ class GameScene extends Phaser.Scene {
       }
     );
 
+    // 监听技能释放事件
+    window.addEventListener('use-skill', (e: any) => {
+      const skillId = e.detail.skillId;
+      const skill = this.player.skills.find(s => s.id === skillId);
+      if (skill) {
+        skill.use(this.player, this.enemies.getChildren() as any, this.time.now);
+      }
+    });
+
+    // 给玩家添加初始技能（示例）
+    const account = new PlayerAccount('demo', 'Demo', '');
+    this.player.skills.push(FireballSkill(account));
+    this.player.skills.push(HealingAuraSkill(account));
+
     // 更新生命值UI
     this.playerHpText.setText(`HP: ${this.player.hp} / ${this.player.maxHp}`);
     // 更新经验条和等级UI
@@ -119,10 +148,36 @@ class GameScene extends Phaser.Scene {
     this.playerExpBar.lineStyle(2, 0xffffff, 1);
     this.playerExpBar.strokeRect(20, 80, 200, 16);
     this.playerLevelText.setText(`等级: ${this.player.level}`);
+
+    // 右上角波次与倒计时UI
+    this.waveUiText = this.add.text(this.scale.width - 220, 20, '', { font: '20px Arial', color: '#fff', backgroundColor: '#000a', padding: { left: 8, right: 8, top: 4, bottom: 4 } }).setScrollFactor(0).setDepth(100);
+    this.startWave(1);
+  }
+
+  startWave(wave: number) {
+    this.wave = wave;
+    this.waveTimer = this.waveTime;
+    this.waveEnemySpawned = 0;
+    this.waveEnemyTotal = this.waveEnemyCount[wave - 1];
+    this.waveEnemyAlive = 0;
+    // 清空场上敌人
+    this.enemies.clear(true, true);
+    // 立即生成全部敌人
+    for (let i = 0; i < this.waveEnemyTotal; i++) {
+      this.spawnEnemy(this.waveEnemyHp[wave - 1]);
+    }
+    this.waveEnemyAlive = this.waveEnemyTotal;
   }
 
   update(time: number, delta: number) {
+    if (this.isGameClear) return;
     if (!this.player.isAlive) return;
+    // 技能自动释放
+    this.player.skills.forEach(skill => {
+      if (time - skill.lastUsed >= skill.cooldown) {
+        skill.use(this.player, this.enemies.getChildren() as any, time);
+      }
+    });
     const cursors = this.cursors;
     const keys = (this.input.keyboard! as Phaser.Input.Keyboard.KeyboardPlugin).addKeys('W,A,S,D') as any;
     let dir = { x: 0, y: 0 };
@@ -178,6 +233,39 @@ class GameScene extends Phaser.Scene {
       this.enemySpawnTimer = 0;
     }
 
+    // 技能栏数据同步（每 100ms）
+    this.skillBarSyncTimer = (this.skillBarSyncTimer || 0) + delta;
+    if (this.skillBarSyncTimer > 100) {
+      window.dispatchEvent(new CustomEvent('update-skillbar', {
+        detail: {
+          skills: this.player.skills.map(s => ({
+            id: s.id,
+            name: s.name,
+            cooldown: s.cooldown,
+            lastUsed: s.lastUsed
+          }))
+        }
+      }));
+      this.skillBarSyncTimer = 0;
+    }
+
+    // 波次倒计时
+    this.waveTimer -= delta / 1000;
+    if (this.waveTimer < 0) this.waveTimer = 0;
+    // 右上角UI
+    if (this.wave <= this.maxWave) {
+      this.waveUiText.setText(`第${this.wave}波 / ${this.maxWave}波\n本波剩余: ${Math.ceil(this.waveTimer)}s`);
+    }
+    // 检查波次结束
+    if (this.waveTimer <= 0 && this.wave < this.maxWave) {
+      this.showWaveEndTip();
+      this.startWave(this.wave + 1);
+    } else if (this.waveTimer <= 0 && this.wave === this.maxWave && !this.isGameClear) {
+      this.isGameClear = true;
+      this.waveUiText.setText('恭喜通关！');
+      this.showGameClearTip();
+    }
+
     // 更新生命值UI
     this.playerHpText.setText(`HP: ${this.player.hp} / ${this.player.maxHp}`);
     // 更新经验条和等级UI
@@ -192,7 +280,7 @@ class GameScene extends Phaser.Scene {
     this.playerLevelText.setText(`等级: ${this.player.level}`);
   }
 
-  spawnEnemy() {
+  spawnEnemy(hpOverride?: number) {
     // 随机在四周生成
     const margin = 40;
     const side = Phaser.Math.Between(0, 3);
@@ -211,6 +299,10 @@ class GameScene extends Phaser.Scene {
       y = Phaser.Math.Between(margin, this.scale.height - margin);
     }
     const enemy = new Enemy(this, x, y);
+    if (hpOverride) {
+      enemy.maxHp = hpOverride;
+      enemy.hp = hpOverride;
+    }
     this.enemies.add(enemy);
   }
 
@@ -252,6 +344,32 @@ class GameScene extends Phaser.Scene {
           onComplete: () => text.destroy()
         });
       }
+    });
+  }
+
+  showWaveEndTip() {
+    const text = this.add.text(this.scale.width / 2, 120, `第${this.wave}波结束，准备进入下一波！`, {
+      font: '28px Arial', color: '#fff', backgroundColor: '#000a', padding: { left: 12, right: 12, top: 6, bottom: 6 }
+    }).setOrigin(0.5).setDepth(200);
+    this.tweens.add({
+      targets: text,
+      alpha: 0,
+      duration: 1200,
+      delay: 1200,
+      onComplete: () => text.destroy()
+    });
+  }
+
+  showGameClearTip() {
+    const text = this.add.text(this.scale.width / 2, this.scale.height / 2, '恭喜通关！', {
+      font: '40px Arial', color: '#ffe066', backgroundColor: '#000a', padding: { left: 24, right: 24, top: 12, bottom: 12 }
+    }).setOrigin(0.5).setDepth(300);
+    this.tweens.add({
+      targets: text,
+      scale: 1.2,
+      duration: 800,
+      yoyo: true,
+      onComplete: () => text.setScale(1)
     });
   }
 }
