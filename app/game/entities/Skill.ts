@@ -7,7 +7,7 @@ export class Skill {
   name: string;
   level: number;
   cooldown: number;
-  effect: (player: Player, enemies: Enemy[]) => void;
+  effect: (player: Player, enemies: Enemy[], skill?: Skill) => boolean | void;
   tradable: boolean;
   owner: PlayerAccount;
   lastUsed: number = 0;
@@ -17,7 +17,7 @@ export class Skill {
     name: string,
     level: number,
     cooldown: number,
-    effect: (player: Player, enemies: Enemy[]) => void,
+    effect: (player: Player, enemies: Enemy[], skill?: Skill) => boolean | void,
     tradable: boolean,
     owner: PlayerAccount
   ) {
@@ -32,7 +32,8 @@ export class Skill {
 
   use(player: Player, enemies: Enemy[], time: number) {
     if (time - this.lastUsed < this.cooldown) return false;
-    this.effect(player, enemies);
+    const result = this.effect(player, enemies, this);
+    if (result === false) return false;
     this.lastUsed = time;
     return true;
   }

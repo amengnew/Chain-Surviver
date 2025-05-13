@@ -84,7 +84,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
-  takeDamage(amount: number) {
+  takeDamage(amount: number, attackerPos?: { x: number; y: number }) {
     const now = this.scene.time.now;
     if (now < this.invincibleUntil || !this.isAlive) return;
     this.hp -= amount;
@@ -97,6 +97,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     } else {
       this.setTint(0xffaaaa);
       this.scene.time.delayedCall(200, () => this.clearTint(), [], this);
+      // 受击击退效果
+      if (attackerPos) {
+        const dx = this.x - attackerPos.x;
+        const dy = this.y - attackerPos.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const knockback = 180; // 击退速度
+        this.setVelocity((dx / len) * knockback, (dy / len) * knockback);
+        this.scene.time.delayedCall(120, () => this.setVelocity(0, 0), [], this);
+      }
     }
   }
 

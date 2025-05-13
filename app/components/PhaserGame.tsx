@@ -16,13 +16,15 @@ const skillIconMap: Record<string, string> = {
 
 const SkillBar: React.FC<{
   skills: { name: string; cooldown: number; lastUsed: number; id: string }[];
-}> = ({ skills }) => {
-  const now = Date.now();
+  now: number;
+}> = ({ skills, now }) => {
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex gap-4 z-30">
       {skills.map((skill, idx) => {
         const cd = Math.max(0, skill.cooldown - (now - skill.lastUsed));
         const icon = skillIconMap[skill.id] || '/assets/placeholder.png';
+        const ratio = skill.cooldown > 0 ? Math.max(0, Math.min(1, cd / skill.cooldown)) : 0;
+        const filter = `grayscale(${ratio}) brightness(${0.7 + 0.3 * (1 - ratio)})`;
         return (
           <div
             key={skill.id}
@@ -32,10 +34,10 @@ const SkillBar: React.FC<{
               src={icon}
               alt={skill.name}
               className="w-8 h-8 mb-0.5"
-              style={{ width: 32, height: 32, filter: cd > 0 ? 'grayscale(1) brightness(0.7)' : 'none', transition: 'filter 0.3s' }}
+              style={{ width: 32, height: 32, filter, transition: 'filter 0.3s' }}
             />
             {cd > 0 && (
-              <span className="absolute bottom-1 right-1 text-yellow-300 text-[10px]">{(cd / 1000).toFixed(1)}s</span>
+              <span className="absolute bottom-1 right-1 text-white font-bold text-base drop-shadow">{(cd / 1000).toFixed(1)}s</span>
             )}
           </div>
         );
@@ -49,6 +51,7 @@ const PhaserGame: React.FC = () => {
   const phaserGameRef = useRef<Phaser.Game | null>(null);
   // 技能栏状态
   const [skills, setSkills] = useState<any[]>([]);
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (gameRef.current && !phaserGameRef.current) {
@@ -73,6 +76,7 @@ const PhaserGame: React.FC = () => {
     }
     // 监听技能栏数据同步事件
     const updateSkillBar = (e: any) => {
+      setNow(e.detail.now);
       setSkills(e.detail.skills);
     };
     window.addEventListener('update-skillbar', updateSkillBar);
@@ -86,7 +90,7 @@ const PhaserGame: React.FC = () => {
   return (
     <>
       <div ref={gameRef} style={{ width: '100vw', height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 10 }} />
-      <SkillBar skills={skills} />
+      <SkillBar skills={skills} now={now} />
     </>
   );
 };

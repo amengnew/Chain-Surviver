@@ -23,13 +23,56 @@ export const FireballSkill = (owner: PlayerAccount) =>
         }
       });
       if (target) {
-        target.takeDamage(50);
-        for (let i = 1; i <= 3; i++) {
-          player.scene.time.delayedCall(i * 1000, () => {
-            if (target && target.isAlive) target.takeDamage(10);
-          });
-        }
+        // 发射 fireball.png 子弹
+        const fireball = player.scene.physics.add.sprite(player.x, player.y, 'fireball');
+        fireball.setScale(0.02); // 根据图片实际大小调整
+        fireball.setDepth(10);
+        const speed = 250;
+        const dx = target.x - player.x;
+        const dy = target.y - player.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        fireball.setVelocity((dx / len) * speed, (dy / len) * speed);
+        fireball.setRotation(Math.atan2(dy, dx));
+        // 手动检测碰撞
+        const checkCollision = () => {
+          if (!fireball.active || !target.isAlive) return;
+          const dist = Phaser.Math.Distance.Between(fireball.x, fireball.y, target.x, target.y);
+          if (dist < 32) { // 32像素内算命中
+            target.takeDamage(50);
+            fireball.destroy();
+            for (let i = 1; i <= 3; i++) {
+              player.scene.time.delayedCall(i * 1000, () => {
+                if (target && target.isAlive) target.takeDamage(10);
+              });
+            }
+            player.scene.events.off('update', checkCollision);
+            player.scene.events.off('update', outOfBoundsHandler);
+          }
+        };
+        player.scene.events.on('update', checkCollision);
+        // 超出屏幕自动销毁 fireball
+        const outOfBoundsHandler = () => {
+          if (!fireball.active) return;
+          if (
+            fireball.x < -32 || fireball.x > player.scene.scale.width + 32 ||
+            fireball.y < -32 || fireball.y > player.scene.scale.height + 32
+          ) {
+            fireball.destroy();
+            player.scene.events.off('update', checkCollision);
+            player.scene.events.off('update', outOfBoundsHandler);
+          }
+        };
+        player.scene.events.on('update', outOfBoundsHandler);
       }
+      // 旧实现：直接对最近敌人造成伤害
+      // if (target) {
+      //   target.takeDamage(50);
+      //   for (let i = 1; i <= 3; i++) {
+      //     player.scene.time.delayedCall(i * 1000, () => {
+      //       if (target && target.isAlive) target.takeDamage(10);
+      //     });
+      //   }
+      // }
     },
     true,
     owner
@@ -43,11 +86,16 @@ export const HealingAuraSkill = (owner: PlayerAccount) =>
     1,
     10000,
     (player: Player) => {
+      if (player.hp / player.maxHp > 0.5) return false;
+      player.setBlendMode(Phaser.BlendModes.ADD); // 高亮
       for (let i = 1; i <= 5; i++) {
         player.scene.time.delayedCall(i * 1000, () => {
           if (player.isAlive) player.hp = Math.min(player.maxHp, player.hp + 20);
         });
       }
+      player.scene.time.delayedCall(5000, () => {
+        player.setBlendMode(Phaser.BlendModes.NORMAL); // 恢复
+      });
     },
     false,
     owner

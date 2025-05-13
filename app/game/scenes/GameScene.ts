@@ -42,6 +42,7 @@ class GameScene extends Phaser.Scene {
     this.load.image('exp5', '/assets/exp5.png');
     this.load.image('exp10', '/assets/exp10.png');
     this.load.image('bullet', '/assets/bullet.png');
+    this.load.image('fireball', '/assets/fireball.png');
   }
 
   create() {
@@ -75,7 +76,7 @@ class GameScene extends Phaser.Scene {
         const enemy = enemyObj as Enemy;
         if (enemy.isAlive && player.isAlive) {
           // 敌人攻击主角，只扣血不直接死亡
-          player.takeDamage(enemy.attackPower);
+          player.takeDamage(enemy.attackPower, { x: enemy.x, y: enemy.y });
           // 敌人被击退一点
           const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, player.x, player.y);
           enemy.setVelocity(-Math.cos(angle) * 100, -Math.sin(angle) * 100);
@@ -175,7 +176,7 @@ class GameScene extends Phaser.Scene {
     // 技能自动释放
     this.player.skills.forEach(skill => {
       if (time - skill.lastUsed >= skill.cooldown) {
-        skill.use(this.player, this.enemies.getChildren() as any, time);
+        skill.use(this.player, this.enemies.getChildren() as any, this.time.now);
       }
     });
     const cursors = this.cursors;
@@ -238,6 +239,7 @@ class GameScene extends Phaser.Scene {
     if (this.skillBarSyncTimer > 100) {
       window.dispatchEvent(new CustomEvent('update-skillbar', {
         detail: {
+          now: this.time.now,
           skills: this.player.skills.map(s => ({
             id: s.id,
             name: s.name,
