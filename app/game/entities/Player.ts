@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { Bullet } from './Bullet';
 import { Skill } from './Skill';
+import { PlayerAccount } from './PlayerAccount';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   hp: number;
@@ -18,8 +19,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   invincibleUntil: number = 0;
   expMagnetRange: number;
   skills: Skill[];
+  account?: PlayerAccount;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, account?: PlayerAccount) {
     super(scene, x, y, 'player');
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -39,6 +41,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.direction = { x: 1, y: 0 };
     this.expMagnetRange = 80; // 经验球吸引范围
     this.skills = [];
+    this.account = account;
   }
 
   move(direction: { x: number; y: number }) {

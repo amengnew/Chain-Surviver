@@ -84,13 +84,13 @@ export const HealingAuraSkill = (owner: PlayerAccount) =>
     'skill_healing_aura',
     '治疗光环',
     1,
-    10000,
+    20000,
     (player: Player) => {
       if (player.hp / player.maxHp > 0.5) return false;
       player.setBlendMode(Phaser.BlendModes.ADD); // 高亮
       for (let i = 1; i <= 5; i++) {
         player.scene.time.delayedCall(i * 1000, () => {
-          if (player.isAlive) player.hp = Math.min(player.maxHp, player.hp + 20);
+          if (player.isAlive) player.hp = Math.min(player.maxHp, player.hp + 10);
         });
       }
       player.scene.time.delayedCall(5000, () => {

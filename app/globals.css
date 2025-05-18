@@ -26,3 +26,24 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* 定义动画关键帧 */
+@keyframes scaleFadeIn {
+  0% {
+    transform: scale(0.8); /* 初始缩小 */
+    opacity: 0; /* 初始透明 */
+  }
+  70% {
+    transform: scale(1.1); /* 放大一点 */
+    opacity: 1; /* 完全不透明 */
+  }
+  100% {
+    transform: scale(1); /* 最终回到正常大小 */
+    opacity: 1;
+  }
+}
+
+/* 定义一个 Tailwind 兼容的动画类 */
+.animate-scale-fade-in {
+  animation: scaleFadeIn 0.8s ease-out forwards; /* 应用动画：名称 时长 缓动函数 结束状态 */
+}

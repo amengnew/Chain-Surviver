@@ -9,12 +9,17 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.76.1",
+    "@wagmi/connectors": "^5.8.2",
+    "@wagmi/core": "^2.17.2",
     "autoprefixer": "^10.4.21",
     "next": "15.3.1",
     "phaser": "^3.88.2",
     "postcss": "^8.5.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "viem": "^2.29.3",
+    "wagmi": "^2.15.3",
     "zustand": "^5.0.4"
   },
   "devDependencies": {

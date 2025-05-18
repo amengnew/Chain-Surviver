@@ -1,121 +1,109 @@
 "use client";
-import Image from "next/image";
+import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
-import MainMenu from './components/MainMenu';
+import GameEntry from './components/GameEntry';
+import WalletConnect from './components/WalletConnect';
+import { getPlayerData, setPlayerData } from './blockchain/viem';
+// import GameMain from './components/GameMain'; // 你可以根据实际情况实现GameMain
 
 const PhaserGame = dynamic(() => import('./components/PhaserGame'), { ssr: false });
 
 export default function Home() {
-  const [showMenu, setShowMenu] = useState(true);
+  const [userData, setUserData] = useState<any>(null);
+  const [inGame, setInGame] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
+  const [playerData, setPlayerDataState] = useState<any>(null);
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
 
-  const handleStart = () => setShowMenu(false);
-  const handleOptions = () => alert('选项功能开发中...');
-  const handleExit = () => window.close();
+  // 点击登录按钮时弹出钱包连接
+  const handleLoginClick = () => {
+    setShowWalletConnect(true);
+  };
 
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+  // 钱包连接成功
+  const handleConnect = async (addr: string, isDefault: boolean = false) => {
+    setAddress(addr);
+    setShowWalletConnect(false);
+    if (isDefault) {
+      // 默认账号，直接用本地 mock 数据
+      const data: [number, number, number, number] = [100, 1, 100, 10];
+      setPlayerDataState(data);
+      setUserData({
+        name: '默认账号',
+        coins: data[0],
+        level: data[1],
+        maxHp: data[2],
+        attackPower: data[3]
+      });
+    } else {
+      // 链上账号，调用合约
+      try {
+        const data = await getPlayerData(addr as `0x${string}`) as [number, number, number, number];
+        setPlayerDataState(data);
+        setUserData({
+          name: '链上玩家',
+          coins: data?.[0] ?? 0,
+          level: data?.[1] ?? 1,
+          maxHp: data?.[2] ?? 100,
+          attackPower: data?.[3] ?? 10
+        });
+      } catch (e) {
+        // 如果合约调用失败，自动切换为默认账号
+        alert('链上数据获取失败，已切换为默认账号');
+        const data: [number, number, number, number] = [100, 1, 100, 10];
+        setPlayerDataState(data);
+        setUserData({
+          name: '默认账号',
+          coins: data[0],
+          level: data[1],
+          maxHp: data[2],
+          attackPower: data[3]
+        });
+      }
+    }
+  };
+
+  // 点击"开始游戏"进入主游戏
+  const handleStart = () => setInGame(true);
+
+  // 结束游戏，回到封面
+  const handleExit = () => {
+    setUserData(null);
+    setInGame(false);
+    setAddress(null);
+    setPlayerDataState(null);
+  };
+
+  // 游戏结束时调用
+  const handleGameOver = async (coins: number, level: number, maxHp: number, attackPower: number) => {
+    if (!address) return;
+    await setPlayerData("",coins, level, maxHp, attackPower);
+  };
+
+  if (!address) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <button onClick={handleLoginClick} className="px-6 py-3 bg-blue-600 text-white rounded text-xl font-bold shadow-lg">
+          登录
+        </button>
+        {showWalletConnect && <WalletConnect onConnect={handleConnect} />}
+      </div>
+    );
+  }
+
+  if (!inGame) {
+    return (
+      <div>
+        <div className="mb-4">已连接: {address.slice(0, 8)}...{address.slice(-6)}</div>
+        <GameEntry
+          userData={userData}
+          onLogin={() => {}}
+          onStart={handleStart}
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+      </div>
+    );
+  }
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-      <main>
-        {showMenu && (
-          <MainMenu onStart={handleStart} onOptions={handleOptions} onExit={handleExit} />
-        )}
-        {!showMenu && <PhaserGame />}
-      </main>
-    </div>
-  );
+  // 进入本地写好的游戏
+  return <PhaserGame coins={userData?.coins ?? 0} onExit={handleExit} />;
 }

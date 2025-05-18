@@ -47,7 +47,8 @@ class GameScene extends Phaser.Scene {
 
   create() {
     // 创建主角
-    this.player = new Player(this, this.scale.width / 2, this.scale.height / 2);
+    const account = new PlayerAccount('demo', 'Demo', '');
+    this.player = new Player(this, this.scale.width / 2, this.scale.height / 2, account);
     this.cursors = this.input.keyboard!.createCursorKeys();
     // 支持 WASD
     (this.input.keyboard! as Phaser.Input.Keyboard.KeyboardPlugin).addKeys('W,A,S,D');
@@ -133,7 +134,6 @@ class GameScene extends Phaser.Scene {
     });
 
     // 给玩家添加初始技能（示例）
-    const account = new PlayerAccount('demo', 'Demo', '');
     this.player.skills.push(FireballSkill(account));
     this.player.skills.push(HealingAuraSkill(account));
 
@@ -172,7 +172,11 @@ class GameScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     if (this.isGameClear) return;
-    if (!this.player.isAlive) return;
+    if (!this.player.isAlive) {
+      // 角色死亡时派发事件
+      window.dispatchEvent(new CustomEvent('game-over', { detail: { type: 'dead' } }));
+      return;
+    }
     // 技能自动释放
     this.player.skills.forEach(skill => {
       if (time - skill.lastUsed >= skill.cooldown) {
@@ -200,14 +204,9 @@ class GameScene extends Phaser.Scene {
     // 敌人自动追踪主角
     this.enemies.children.iterate((enemyObj: Phaser.GameObjects.GameObject | undefined) => {
       const enemy = enemyObj as Enemy;
-      if (enemy) {
+      if (enemy && enemy.active) {
         if (enemy.isAlive) {
           enemy.moveToward(new Phaser.Math.Vector2(this.player.x, this.player.y));
-        }
-        // 敌人死亡时掉落经验球
-        if (enemy.hp <= 0 && !enemy.getData('expDropped')) {
-          enemy.setData('expDropped', true);
-          this.spawnExpOrb(enemy.x, enemy.y);
         }
       }
       return true;
@@ -266,6 +265,8 @@ class GameScene extends Phaser.Scene {
       this.isGameClear = true;
       this.waveUiText.setText('恭喜通关！');
       this.showGameClearTip();
+      // 通关时派发事件
+      window.dispatchEvent(new CustomEvent('game-over', { detail: { type: 'clear' } }));
     }
 
     // 更新生命值UI
@@ -305,6 +306,8 @@ class GameScene extends Phaser.Scene {
       enemy.maxHp = hpOverride;
       enemy.hp = hpOverride;
     }
+    // 怪物伤害随波次提升
+    enemy.attackPower = 10 * this.wave;
     this.enemies.add(enemy);
   }
 
@@ -350,7 +353,15 @@ class GameScene extends Phaser.Scene {
   }
 
   showWaveEndTip() {
-    const text = this.add.text(this.scale.width / 2, 120, `第${this.wave}波结束，准备进入下一波！`, {
+    // 每波通关奖励5金币
+    if (this.player && this.player.account) {
+      this.player.account.tokenBalance += 5;
+      // 可选：同步到链上
+      if (typeof this.player.account.syncToChain === 'function') {
+        this.player.account.syncToChain();
+      }
+    }
+    const text = this.add.text(this.scale.width / 2, 120, `第${this.wave}波结束，奖励5金币！`, {
       font: '28px Arial', color: '#fff', backgroundColor: '#000a', padding: { left: 12, right: 12, top: 6, bottom: 6 }
     }).setOrigin(0.5).setDepth(200);
     this.tweens.add({
@@ -363,6 +374,13 @@ class GameScene extends Phaser.Scene {
   }
 
   showGameClearTip() {
+    // 通关奖励5金币
+    if (this.player && this.player.account) {
+      this.player.account.tokenBalance += 5;
+      if (typeof this.player.account.syncToChain === 'function') {
+        this.player.account.syncToChain();
+      }
+    }
     const text = this.add.text(this.scale.width / 2, this.scale.height / 2, '恭喜通关！', {
       font: '40px Arial', color: '#ffe066', backgroundColor: '#000a', padding: { left: 24, right: 24, top: 12, bottom: 12 }
     }).setOrigin(0.5).setDepth(300);

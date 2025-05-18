@@ -46,12 +46,13 @@ const SkillBar: React.FC<{
   );
 };
 
-const PhaserGame: React.FC = () => {
+const PhaserGame: React.FC<{ coins: number; onExit?: () => void }> = ({ coins, onExit }) => {
   const gameRef = useRef<HTMLDivElement>(null);
   const phaserGameRef = useRef<Phaser.Game | null>(null);
   // 技能栏状态
   const [skills, setSkills] = useState<any[]>([]);
   const [now, setNow] = useState(0);
+  const [gameOver, setGameOver] = useState<null | 'dead' | 'clear'>(null);
 
   useEffect(() => {
     if (gameRef.current && !phaserGameRef.current) {
@@ -80,17 +81,62 @@ const PhaserGame: React.FC = () => {
       setSkills(e.detail.skills);
     };
     window.addEventListener('update-skillbar', updateSkillBar);
+    // 监听游戏结束事件
+    const handleGameOver = (e: any) => {
+      setGameOver(e.detail.type);
+    };
+    window.addEventListener('game-over', handleGameOver);
     return () => {
       phaserGameRef.current?.destroy(true);
       phaserGameRef.current = null;
       window.removeEventListener('update-skillbar', updateSkillBar);
+      window.removeEventListener('game-over', handleGameOver);
     };
   }, []);
 
   return (
     <>
+      {/* 金币UI */}
+      <div className="fixed top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 bg-black/60 px-4 py-2 rounded-lg shadow text-yellow-400 font-bold text-xl">
+        金币：{coins}
+      </div>
       <div ref={gameRef} style={{ width: '100vw', height: '100vh', position: 'fixed', left: 0, top: 0, zIndex: 10 }} />
       <SkillBar skills={skills} now={now} />
+      {gameOver && (
+        <div
+          className="fixed left-1/2 top-1/2 z-50"
+          style={{
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(0,0,0,0.7)',
+            width: '100vw',
+            height: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl p-10 flex flex-col items-center animate-scale-fade-in">
+            <div
+              className="text-5xl font-extrabold mb-6"
+              style={{
+                color: gameOver === 'dead' ? '#e11d48' : '#16a34a',
+                textShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              }}
+            >
+              {gameOver === 'dead' ? 'DEAD' : '恭喜通关！'}
+            </div>
+            <button
+              className="mt-4 px-10 py-4 text-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg"
+              onClick={() => {
+                setGameOver(null);
+                if (onExit) onExit();
+              }}
+            >
+              结束游戏
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

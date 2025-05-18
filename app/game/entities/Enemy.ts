@@ -45,21 +45,31 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
-      this.isAlive = false;
-      this.setTint(0xff0000);
-      this.setVelocity(0, 0);
-      this.disableBody(true, true);
+      this.die();
     }
   }
 
   die() {
+    if (!this.isAlive) return;
+
     this.isAlive = false;
     this.setTint(0xff0000);
-    this.setVelocity(0, 0);
-    this.disableBody(true, true);
-    // 死亡时掉落经验球
-    if (typeof (this.scene as any).spawnExpOrb === 'function') {
+
+    // 死亡时掉落经验球 (Move this before disabling body)
+    // Ensure scene and spawnExpOrb method exist
+    if (this.scene && typeof (this.scene as any).spawnExpOrb === 'function') {
       (this.scene as any).spawnExpOrb(this.x, this.y);
+    }
+
+    if (this.body) {
+      (this.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+      // Disable body and destroy sprite visually/physically (Call after dropping orb)
+      this.disableBody(true, true);
+    } else {
+      // Fallback if body is already gone
+      this.setActive(false);
+      this.setVisible(false);
+      this.destroy(); // Explicitly destroy if body is already missing
     }
   }
 
